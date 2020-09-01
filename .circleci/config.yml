@@ -1,7 +1,70 @@
 version: 2.1
-orbs:
-  node: circleci/node@3.0.0
+
+jobs:
+    build:
+      # Use prebuild docker container for node js
+      docker:
+        - image: circleci/node:12-browsers
+      steps:
+        # Checkout the code from the branch into the working_directory
+        - checkout
+        # Log the current branch
+        - run:
+            name: Show current branch
+            command: echo ${CIRCLE_BRANCH}
+        # Restore local dependencies from cache
+        - restore_cache:
+            keys:
+              - v1-dependencies-{{ checksum "package-lock.json" }}
+              - v1-dependencies-
+        # Install project dependencies
+        - run:
+            name: Install local dependencies
+            command: |
+              npm install -g @angular/cli --prefix=$HOME/.local
+              npm ci
+        # Replace servers
+        - run:
+            name: Edit source files for our environment
+            command: |
+                sed -i -e "s|https://dtapi.if.ua/api|$LB_IP|g" \
+                "./src/environments/environment.prod.ts"
+        # Lint the source code
+        - run:
+            name: Linting
+            command: ng lint
+        # Test the source code
+        - run:
+            name: Testing
+            command: ng test --watch=false --browsers ChromeHeadless
+        # Build production version of angular app
+        - run:
+            name: Build angular app
+            command: ng build --prod
+        # Gzip everything into one single artifact
+        - run:
+            name: Create artifacts
+            command: tar -czf "dtapi_fe.tar.gz" -C ./dist/IF105/ .
+        # Store the an artifact
+        - store_artifacts:
+            path: dtapi_fe.tar.gz
+        # Cache local dependencies if they don't exist
+        - save_cache:
+            key: v1-dependencies-{{ checksum "package-lock.json" }}
+            paths:
+              - node_modules
+
 workflows:
-  node-tests:
+  version: 2
+  build_and_deploy:
     jobs:
-      - node/test
+      - build
+#      - deploy:
+#          # only deploy once build job has completed
+#          requires:
+#            - build
+#          # Only deploy on the master branch
+#          filters:
+#            branches:
+#              only: master
+#
