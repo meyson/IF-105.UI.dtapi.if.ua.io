@@ -1,11 +1,66 @@
 version: 2.1
 
 orbs:
-  gcp-cli: circleci/gcp-cli@1.8.4
   k8s: circleci/kubernetes@0.11.0
   gcp-gcr: circleci/gcp-gcr@0.8.0
   gcp-gke: circleci/gcp-gke@1.1.0
 
+commands:
+  # A slightly modified version of the official gcp-gke orb, the only difference is
+  # it takes two additional parameters perform-login and install-kubectl.
+  # Original: https://github.com/CircleCI-Public/gcp-gke-orb/blob/master/src/commands/rollout-image.yml
+  rollout-image:
+    parameters:
+      install-kubectl:
+        description: >
+          Whether to install kubectl
+        type: boolean
+        default: false
+      perform-login:
+        description: >
+          Whether to perform a login with the gcloud CLI.
+        type: boolean
+        default: false
+      cluster:
+        description: "The Kubernetes cluster name."
+        type: string
+      deployment:
+        description: "The Kubernetes deployment name."
+        type: string
+      container:
+        description: "The Kubernetes container name."
+        type: string
+      image:
+        description: A fully-qualified name for your docker image
+        type: string
+      tag:
+        description: Docker image tag
+        type: string
+        default: latest
+      namespace:
+        description: "The Kubernetes namespace name."
+        type: string
+        default: ""
+      dry-run:
+        default: none
+        description: |
+          Must be "none", "server", or "client". If client strategy, only print the object that would be sent, without sending it. If server strategy, submit server-side request without persisting the resource.
+        type: enum
+        enum: [ "none", "server", "client" ]
+    steps:
+      - gcp-gke/update-kubeconfig-with-credentials:
+          cluster: <<parameters.cluster>>
+          perform-login: <<parameters.perform-login>>
+          install-kubectl: <<parameters.install-kubectl>>
+      - run:
+          name: Roll out image
+          command: |
+            DRY_RUN="<< parameters.dry-run >>"
+            if [ -n "<<parameters.namespace>>" ]; then
+              set -- "$@" --namespace="<<parameters.namespace>>"
+            fi
+            set -- "$@" "--dry-run=${DRY_RUN}"
+            kubectl set image deployment <<parameters.deployment>> <<parameters.container>>=<<parameters.image>>:<<parameters.tag>> "$@"
 jobs:
     build-artifact:
       # Use prebuild docker container for node js
@@ -93,36 +148,17 @@ jobs:
       docker:
         - image: cimg/base:2020.01
       resource_class: small
-      parameters:
-        gcloud-service-key:
-          type: env_var_name
-          default: GCLOUD_SERVICE_KEY
-          description: The gcloud service key
-        google-project-id:
-          type: env_var_name
-          default: GOOGLE_PROJECT_ID
-          description: >
-            Environment variable name for the Google project ID to connect with
-            via the gcloud CLI
-        google-compute-zone:
-          type: env_var_name
-          default: GOOGLE_COMPUTE_ZONE
-          description: >
-            The Google compute zone to connect with via the gcloud CLI
+      # from https://github.com/CircleCI-Public/gcp-gke-orb
       steps:
-        - k8s/install-kubectl
-        # gcloud login
-        - gcp-cli/initialize:
-            google-project-id: <<parameters.google-project-id>>
-            google-compute-zone: <<parameters.google-compute-zone>>
-            gcloud-service-key: <<parameters.gcloud-service-key>>
         # Update a deployment Docker image.
-        - gcp-gke/rollout-image:
+        - rollout-image:
             cluster: $GCP_CLUSTER
             deployment: $GCP_K8_DEPLOYMENT
             container: $GCP_K8_CONTAINER
             image: eu.gcr.io/$GOOGLE_PROJECT_ID/dtapi-fe
             tag: ${CIRCLE_SHA1:0:7}
+            perform-login: true
+            install-kubectl: true
 
 workflows:
   build:
@@ -137,8 +173,8 @@ workflows:
           context: dtapi
           requires:
             - build-and-push-image
-         # filters:
-         #   branches:
-         #     only:
-         #       - master
+          filters:
+            branches:
+              only:
+                - master
 
