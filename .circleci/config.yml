@@ -2,6 +2,7 @@ version: 2.1
 
 orbs:
   gcp-cli: circleci/gcp-cli@1.8.4
+  k8s: circleci/kubernetes@0.11.0
   gcp-gcr: circleci/gcp-gcr@0.8.0
   gcp-gke: circleci/gcp-gke@1.1.0
 
@@ -59,7 +60,7 @@ jobs:
               - "docker"
     build-and-push-image:
       docker:
-        - image: gcr.io/google.com/cloudsdktool/cloud-sdk:latest
+        - image: cimg/base:2020.01
       resource_class: small
       steps:
         - setup_remote_docker
@@ -90,7 +91,7 @@ jobs:
               echo "Digest is: $(</tmp/digest.txt)"
     deploy:
       docker:
-        - image: gcr.io/google.com/cloudsdktool/cloud-sdk:latest
+        - image: cimg/base:2020.01
       resource_class: small
       parameters:
         gcloud-service-key:
@@ -109,6 +110,7 @@ jobs:
           description: >
             The Google compute zone to connect with via the gcloud CLI
       steps:
+        - k8s/install-kubectl
         # gcloud login
         - gcp-cli/initialize:
             google-project-id: <<parameters.google-project-id>>
@@ -135,8 +137,8 @@ workflows:
           context: dtapi
           requires:
             - build-and-push-image
-#          filters:
-#            branches:
-#              only:
-#                - master
-#
+         # filters:
+         #   branches:
+         #     only:
+         #       - master
+
