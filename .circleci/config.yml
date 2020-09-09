@@ -43,8 +43,9 @@ commands:
         default: ""
       dry-run:
         default: none
-        description: |
-          Must be "none", "server", or "client". If client strategy, only print the object that would be sent, without sending it. If server strategy, submit server-side request without persisting the resource.
+        description: >
+          Must be "none", "server", or "client". If client strategy, only print the object that would be sent,
+          without sending it. If server strategy, submit server-side request without persisting the resource.
         type: enum
         enum: [ "none", "server", "client" ]
     steps:
@@ -62,6 +63,7 @@ commands:
             set -- "$@" "--dry-run=${DRY_RUN}"
             kubectl set image deployment <<parameters.deployment>> <<parameters.container>>=<<parameters.image>>:<<parameters.tag>> "$@"
 jobs:
+    # Build and run unit tests
     build-artifact:
       # Use prebuild docker container for node js
       docker:
@@ -92,7 +94,7 @@ jobs:
         - run:
             name: Testing
             command: ng test --watch=false --browsers ChromeHeadless
-        # Build production version of angular app
+        # Build dev version of angular app
         - run:
             name: Build angular app
             command: ng build
@@ -113,6 +115,7 @@ jobs:
             paths:
               - "dist"
               - "docker"
+    # Build and push Docker image to GCR
     build-and-push-image:
       docker:
         - image: cimg/base:2020.01
@@ -133,7 +136,7 @@ jobs:
             image: dtapi-fe
             registry-url: eu.gcr.io
             tag: ${CIRCLE_SHA1:0:7}
-        # Tag pusshed image as latest
+        # Tag pushed image as latest
         - gcp-gcr/tag-image:
             image: dtapi-fe
             registry-url: eu.gcr.io
@@ -144,11 +147,11 @@ jobs:
             name: sha256 Digest
             command: |
               echo "Digest is: $(</tmp/digest.txt)"
+    # Deploy our app to our kubernetes cluster
     deploy:
       docker:
         - image: cimg/base:2020.01
       resource_class: small
-      # from https://github.com/CircleCI-Public/gcp-gke-orb
       steps:
         # Update a deployment Docker image.
         - rollout-image:
@@ -163,12 +166,12 @@ jobs:
 workflows:
   build:
     jobs:
+      # Build artifact and run unit tests
       - build-artifact
       - build-and-push-image:
           context: dtapi
           requires:
             - build-artifact
-
       - deploy:
           context: dtapi
           requires:
