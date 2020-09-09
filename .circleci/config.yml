@@ -43,8 +43,9 @@ commands:
         default: ""
       dry-run:
         default: none
-        description: |
-          Must be "none", "server", or "client". If client strategy, only print the object that would be sent, without sending it. If server strategy, submit server-side request without persisting the resource.
+        description: >
+          Must be "none", "server", or "client". If client strategy, only print the object that would be sent,
+          without sending it. If server strategy, submit server-side request without persisting the resource.
         type: enum
         enum: [ "none", "server", "client" ]
     steps:
@@ -148,7 +149,6 @@ jobs:
       docker:
         - image: cimg/base:2020.01
       resource_class: small
-      # from https://github.com/CircleCI-Public/gcp-gke-orb
       steps:
         # Update a deployment Docker image.
         - rollout-image:
@@ -163,12 +163,13 @@ jobs:
 workflows:
   build:
     jobs:
+      # build and push every commit
       - build-artifact
       - build-and-push-image:
           context: dtapi
           requires:
             - build-artifact
-
+      # Only deploy on the master branch
       - deploy:
           context: dtapi
           requires:
