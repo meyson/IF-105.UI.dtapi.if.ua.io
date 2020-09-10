@@ -1,4 +1,5 @@
 # IF105
+[![<Build>](https://circleci.com/gh/meyson/IF-105.UI.dtapi.if.ua.io.svg?style=svg)](https://app.circleci.com/pipelines/github/meyson/IF-105.UI.dtapi.if.ua.io)
 
 This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 8.3.21.
 
