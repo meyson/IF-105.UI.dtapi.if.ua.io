@@ -93,15 +93,23 @@ jobs:
         # Test the source code
         - run:
             name: Testing
-            command: ng test --watch=false --browsers ChromeHeadless
+            environment:
+              JUNIT_REPORT_PATH: ./junit/
+              JUNIT_REPORT_NAME: test-results.xml
+            command: |
+              mkdir junit
+              ng test --watch=false --browsers ChromeHeadless
         # Build dev version of angular app
         - run:
             name: Build angular app
-            command: ng build
+            command: ng build --no-progress
         # Gzip everything into one single artifact
         - run:
             name: Create artifacts
             command: tar -czf "dtapi_fe.tar.gz" -C ./dist/IF105/ .
+        # Store test results
+        - store_test_results:
+            path: ./junit
         # Store the an artifact
         - store_artifacts:
             path: dtapi_fe.tar.gz
