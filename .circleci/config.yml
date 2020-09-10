@@ -64,7 +64,7 @@ commands:
             kubectl set image deployment <<parameters.deployment>> <<parameters.container>>=<<parameters.image>>:<<parameters.tag>> "$@"
 jobs:
     # Build and run unit tests
-    build-artifact:
+    build-and-test:
       # Use prebuild docker container for node js
       docker:
         - image: circleci/node:12-browsers
@@ -167,11 +167,15 @@ workflows:
   build:
     jobs:
       # Build artifact and run unit tests
-      - build-artifact
+      - build-and-test
       - build-and-push-image:
           context: dtapi
           requires:
-            - build-artifact
+            - build-and-test
+          filters:
+            branches:
+              only:
+                - master
       - deploy:
           context: dtapi
           requires:
